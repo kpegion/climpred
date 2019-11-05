@@ -32,7 +32,7 @@ def pm_ds_control1d():
 def test_perfectModelEnsemble_init(pm_ds_ds1d):
     """Test to see if perfect model ensemble can be initialized"""
     pm = PerfectModelEnsemble(pm_ds_ds1d)
-    print(PerfectModelEnsemble)
+    print(pm)
     assert pm
 
 
@@ -46,6 +46,7 @@ def test_add_control(pm_ds_ds1d, pm_ds_control1d):
     """Test to see if control can be added to PerfectModelEnsemble"""
     pm = PerfectModelEnsemble(pm_ds_ds1d)
     pm = pm.add_control(pm_ds_control1d)
+    print(pm)
     assert pm.get_control()
 
 

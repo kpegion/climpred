@@ -84,6 +84,7 @@ def test_add_reference(initialized_ds, reconstruction_ds):
     """Test to see if a reference can be added to the HindcastEnsemble"""
     hindcast = HindcastEnsemble(initialized_ds)
     hindcast = hindcast.add_reference(reconstruction_ds, 'reconstruction')
+    print(hindcast)
     # Will fail if this comes back empty.
     assert hindcast.get_reference()
 
@@ -99,6 +100,7 @@ def test_add_uninitialized(initialized_ds, uninitialized_ds):
     """Test to see if an uninitialized ensemble can be added to the HindcastEnsemble"""
     hindcast = HindcastEnsemble(initialized_ds)
     hindcast = hindcast.add_uninitialized(uninitialized_ds)
+    print(hindcast)
     assert hindcast.get_uninitialized()
 
 
