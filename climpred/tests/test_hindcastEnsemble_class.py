@@ -198,6 +198,17 @@ def test_smooth_temporal(fosi_3d, dple_3d):
     assert initialized_before[dim].size > actual_initialized[dim].size
 
 
+def test_smooth_keyword_error(fosi_3d, dple_3d):
+    """Test whether error is thrown if improper smooth_kw used."""
+    hindcast = HindcastEnsemble(dple_3d)
+    hindcast = hindcast.add_reference(fosi_3d, 'reconstruction')
+    with pytest.raises(ValueError) as e:
+        hindcast.smooth(smooth_kws='not_a_keyword')
+    assert (
+        'Please provide from list of available smoothings: ["goddard2013"]' in e.value
+    )
+
+
 def test_isel_xarray_func(initialized_ds, reconstruction_ds):
     """Test whether applying isel to the objects works."""
     hindcast = HindcastEnsemble(initialized_ds)
