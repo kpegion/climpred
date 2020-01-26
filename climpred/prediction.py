@@ -231,14 +231,14 @@ def compute_hindcast(
     # iterate over all leads (accounts for lead.min() in [0,1])
     for i in forecast.lead.values:
         if max_dof:
-            forecast, verif = reduce_time_series(forecast, verif, i)
+            f, v = reduce_time_series(forecast, verif, i)
         # take lead year i timeseries and convert to real time based on temporal
         # resolution of lead.
-        n, freq = get_lead_cftime_shift_args(forecast.lead.attrs['units'], i)
-        a = forecast.sel(lead=i).drop_vars('lead')
+        n, freq = get_lead_cftime_shift_args(f.lead.attrs['units'], i)
+        a = f.sel(lead=i).drop_vars('lead')
         a['time'] = shift_cftime_index(a, 'time', n, freq)
         # Take real time verification data using real time forecast dates.
-        b = verif.sel(time=a.time.values)
+        b = v.sel(time=a.time.values)
 
         # adapt weights to shorter time
         if 'weights' in metric_kwargs:
