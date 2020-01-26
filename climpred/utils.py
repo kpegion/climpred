@@ -1,8 +1,9 @@
 import datetime
 import warnings
 
-import cftime
 import numpy as np
+
+import cftime
 import pandas as pd
 import xarray as xr
 from xarray.coding.cftime_offsets import to_offset
@@ -196,7 +197,11 @@ def reduce_time_series(forecast, verif, nlags):
     n, freq = get_lead_cftime_shift_args(forecast.lead.attrs['units'], nlags)
     verif_dates = shift_cftime_index(verif, 'time', -1 * n, freq)
 
-    imin = max(forecast.time.min(), verif.time.min())
+    # NOTE: Currently only works for max_dof=True. Need to have a different route
+    # if max_dof=False.
+    imin = set(verif_dates) & set(forecast.time.values)
+    imin = min(imin)
+
     imax = min(forecast.time.max(), verif_dates.max())
     imax = xr.DataArray(imax).rename('time')
     forecast = forecast.where(forecast.time <= imax, drop=True)
