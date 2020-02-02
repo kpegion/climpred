@@ -2,6 +2,7 @@ import inspect
 import warnings
 
 import dask
+import numpy as np
 import xarray as xr
 
 from .checks import has_valid_lead_units, is_in_list, is_xarray
@@ -23,7 +24,6 @@ from .utils import (
     get_comparison_class,
     get_lead_cftime_shift_args,
     get_metric_class,
-    intersect,
     reduce_time_series,
     shift_cftime_index,
 )
@@ -350,6 +350,12 @@ def compute_persistence(
             # room for lead from current forecast
             a, _ = reduce_time_series(hind, verif, lag)
             inits = a['time']
+            # NOTE: This is a quick fix for my revisions. Will make this cleaner for
+            # a PR.
+            # Only keep the inits that the `verif` also has.
+            inits = set(verif.time.values) & set(inits.time.values)
+            inits = sorted(np.asarray(list(inits)))
+            a = a.sel(time=inits)
         n, freq = get_lead_cftime_shift_args(hind.lead.attrs['units'], lag)
         target_dates = shift_cftime_index(a, 'time', n, freq)
 
@@ -370,6 +376,7 @@ def compute_persistence(
 
 @is_xarray([0, 1])
 def compute_uninitialized(
+    hind,
     uninit,
     verif,
     metric='pearson_r',
@@ -380,11 +387,8 @@ def compute_uninitialized(
 ):
     """Verify an uninitialized ensemble against verification data.
 
-    .. note::
-        Based on Decadal Prediction protocol, this should only be computed for the
-        first lag and then projected out to any further lags being analyzed.
-
     Args:
+        hind (xarray object): Initialized ensemble.
         uninit (xarray object): Uninitialized ensemble.
         verif (xarray object): Verification data with some temporal overlap with the
             uninitialized ensemble.
@@ -404,6 +408,7 @@ def compute_uninitialized(
 
     """
     # Check that init is int, cftime, or datetime; convert ints or cftime to datetime.
+    hind = convert_time_index(hind, 'init', 'hind[init]')
     uninit = convert_time_index(uninit, 'time', 'uninit[time]')
     verif = convert_time_index(verif, 'time', 'verif[time]')
 
@@ -413,14 +418,29 @@ def compute_uninitialized(
 
     comparison = get_comparison_class(comparison, HINDCAST_COMPARISONS)
     metric = get_metric_class(metric, DETERMINISTIC_HINDCAST_METRICS)
+
     forecast, verif = comparison.function(uninit, verif, metric=metric)
-    # Find common times between two for proper comparison.
-    common_time = intersect(forecast['time'].values, verif['time'].values)
-    forecast = forecast.sel(time=common_time)
-    verif = verif.sel(time=common_time)
-    uninit_skill = metric.function(
-        forecast, verif, dim=dim, comparison=comparison, **metric_kwargs
-    )
+
+    hind = hind.rename({'init': 'time'})
+
+    plag = []
+    for lag in hind.lead.values:
+        # Find verification dates for hindcast.
+        a, _ = reduce_time_series(hind, verif, lag)
+        n, freq = get_lead_cftime_shift_args(hind.lead.attrs['units'], lag)
+        target_dates = shift_cftime_index(a, 'time', n, freq)
+        # Find union between the hindcast's target dates and uninitialized
+        # target dates.
+        uninit_dates = set(target_dates.values) & set(forecast.time.values)
+        uninit_dates = sorted(np.asarray(list(uninit_dates)))
+        o = verif.sel(time=uninit_dates)
+        f = forecast.sel(time=uninit_dates)
+        plag.append(
+            metric.function(o, f, dim='time', comparison=comparison, **metric_kwargs)
+        )
+    uninit_skill = xr.concat(plag, 'lead')
+    uninit_skill['lead'] = hind.lead.values
+
     # Attach climpred compute information to skill
     if add_attrs:
         uninit_skill = assign_attrs(
